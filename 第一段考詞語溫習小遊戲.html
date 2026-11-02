@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小四趣味詞語配對樂園</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti for winning celebration -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts: Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #fef3c7 100%);
+            min-height: 100vh;
+        }
+        .bounce-subtle {
+            animation: bounceSubtle 2s infinite ease-in-out;
+        }
+        @keyframes bounceSubtle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.15), 0 8px 10px -6px rgba(56, 189, 248, 0.1);
+        }
+    </style>
+</head>
+<body class="text-slate-700 flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-30 border-b border-sky-100">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl bg-sky-100 p-2 rounded-2xl bounce-subtle">🎒</span>
+                <div>
+                    <h1 class="text-2xl font-black text-sky-600 tracking-wide">小四趣味詞語配對樂園</h1>
+                    <p class="text-xs text-slate-500">精選5個課題，輕鬆溫習中文課文詞語！</p>
+                </div>
+            </div>
+            <!-- Mode Switcher -->
+            <div class="flex bg-sky-50 p-1.5 rounded-2xl border border-sky-200">
+                <button id="modeMatchBtn" onclick="switchMode('match')" class="px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-sky-600">🧩 連線配對模式</button>
+                <button id="modeDropdownBtn" onclick="switchMode('dropdown')" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-sky-600 transition-all">📝 下拉選單測驗模式</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        <!-- Sidebar: Lesson Selector -->
+        <aside class="lg:col-span-1 space-y-4">
+            <div class="bg-white rounded-3xl p-5 card-shadow border border-sky-100">
+                <h2 class="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <span>📚</span> 選擇學習課文 (共5課)
+                </h2>
+                <div id="lessonTabs" class="space-y-2">
+                    <!-- Lesson tabs rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Tips Card -->
+            <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl p-5 border border-amber-200 text-amber-900 card-shadow">
+                <div class="flex items-center gap-2 font-bold mb-2 text-amber-800">
+                    <span>💡</span> 溫習小貼士
+                </div>
+                <p class="text-xs leading-relaxed text-amber-700">
+                    點擊「檢查答案」後，系統會立即核對並以綠標或紅標指出對錯，並直接在下方列出正確答案！
+                </p>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <section class="lg:col-span-3 flex flex-col space-y-6">
+            
+            <!-- Lesson Header Bar -->
+            <div class="bg-white rounded-3xl p-6 card-shadow border border-sky-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <span id="lessonBadge" class="bg-sky-100 text-sky-700 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">第一課</span>
+                    <h2 id="lessonTitle" class="text-2xl font-black text-slate-800 mt-1">《白雲》</h2>
+                    <p id="lessonSub" class="text-sm text-slate-500 mt-0.5">請將左側詞語與右側正確解釋進行配對</p>
+                </div>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <button onclick="resetCurrentLesson()" class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm transition flex items-center gap-1.5 active:scale-95">
+                        🔄 重新開始
+                    </button>
+                    <button onclick="showAllAnswers()" class="px-4 py-2.5 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold text-sm transition flex items-center gap-1.5 active:scale-95">
+                        👀 查看參考答案
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mode 1: Match Challenge View -->
+            <div id="matchGameView" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Left Column: Words -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center px-2">
+                            <h3 class="font-bold text-slate-700 text-sm flex items-center gap-1">🔤 詞語欄</h3>
+                            <span class="text-xs text-slate-400 bg-white px-2 py-0.5 rounded-full border">點擊選擇詞語</span>
+                        </div>
+                        <div id="wordsContainer" class="space-y-3"></div>
+                    </div>
+
+                    <!-- Right Column: Definitions -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center px-2">
+                            <h3 class="font-bold text-slate-700 text-sm flex items-center gap-1">📖 解釋欄 (隨機排序)</h3>
+                            <span class="text-xs text-slate-400 bg-white px-2 py-0.5 rounded-full border">點擊對應解釋</span>
+                        </div>
+                        <div id="definitionsContainer" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <!-- Check & Feedback Bar -->
+                <div class="bg-white rounded-3xl p-6 card-shadow border border-sky-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div id="matchFeedbackBox" class="text-sm font-bold text-slate-500 flex items-center gap-2">
+                        <span>✨</span> 完成配對後請點擊檢查答案按鈕！
+                    </div>
+                    <button onclick="checkMatchAnswers()" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white font-black text-base shadow-lg shadow-sky-200 transition-all active:scale-95 flex items-center justify-center gap-2">
+                        <span>🚀</span> 檢查答案
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mode 2: Dropdown Quiz View -->
+            <div id="dropdownQuizView" class="hidden space-y-6">
+                <div class="bg-white rounded-3xl p-6 md:p-8 card-shadow border border-sky-100 space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-4 gap-2">
+                        <span class="text-sm font-bold text-sky-600 bg-sky-50 px-3 py-1 rounded-full">📝 下拉選單配對測驗</span>
+                        <span id="dropdownScore" class="text-sm font-bold text-slate-600">完成後點擊檢查按鈕評分</span>
+                    </div>
+                    <div id="dropdownListContainer" class="space-y-4">
+                        <!-- Dropdown items rendered dynamically -->
+                    </div>
+                    <div class="pt-4 border-t flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div id="dropdownFeedbackBox" class="text-sm font-bold text-slate-500">
+                            請為每個詞語選擇最正確的解釋！
+                        </div>
+                        <button onclick="checkDropdownAnswers()" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-base shadow-lg shadow-emerald-200 transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <span>✅</span> 檢查全部答案
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-6 text-center text-xs text-slate-400 border-t border-sky-100">
+        <p>小四趣味詞語配對學習程式 &copy; 2026 | 專為小四中文科設計 🎒✨</p>
+    </footer>
+
+    <!-- Result Modal -->
+    <div id="resultModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full text-center card-shadow space-y-4">
+            <div id="modalIcon" class="text-6xl mb-2">🎉</div>
+            <h3 id="modalTitle" class="text-2xl font-black text-slate-800">太棒了！全部答對！</h3>
+            <p id="modalDesc" class="text-slate-600 text-sm">你真聰明，已經完全掌握了這課的詞語！</p>
+            <div class="pt-4 flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition">返回繼續</button>
+                <button onclick="nextLesson()" class="flex-1 py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold transition shadow-md shadow-sky-200">下一課 ➡️</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic Script -->
+    <script>
+        // Lessons Data Structure with exact 5 lessons specified
+        const lessonsData = [
+            {
+                id: 1,
+                title: "第一課 《白雲》",
+                subtitle: "8個詞語",
+                words: [
+                    { word: "歡喜", def: "快樂、高興。" },
+                    { word: "羨慕", def: "看到別人有好處或優越條件而心裡嚮往。" },
+                    { word: "無憂無慮", def: "沒有一點憂愁和顧慮，心情輕鬆。" },
+                    { word: "自由自在", def: "形容沒有拘束，十分安閒隨意。" },
+                    { word: "飄浮", def: "在空中或水面上隨風漂動。" },
+                    { word: "烏雲密佈", def: "天空佈滿了黑雲，形容快要下雨的昏暗景象。" },
+                    { word: "焦急", def: "心裡焦急不安，十分著急。" },
+                    { word: "擦乾", def: "用布或紙等把水分抹乾。" }
+                ]
+            },
+            {
+                id: 4,
+                title: "第四課 《討厭的大白鵝》",
+                subtitle: "10個詞語",
+                words: [
+                    { word: "佩服", def: "感到敬佩、服氣。" },
+                    { word: "前仰後合", def: "身體前後搖晃，形容笑得厲害或站不穩。" },
+                    { word: "脖子", def: "頭和軀幹相連的部分。" },
+                    { word: "淹死", def: "人或動物因水淹入呼吸道而窒息死亡。" },
+                    { word: "戳", def: "用手指或尖銳的東西刺。" },
+                    { word: "惱羞成怒", def: "因感到羞恥而惱恨發怒。" },
+                    { word: "隱私", def: "不願公開的個人祕密。" },
+                    { word: "藉故", def: "藉口某種原因（多指找藉口）。" },
+                    { word: "宰掉", def: "殺掉（多指家禽、家畜）。" },
+                    { word: "善良", def: "心地純潔，溫和，不願傷害別人。" }
+                ]
+            },
+            {
+                id: 5,
+                title: "第五課 《媽媽,您也長大了!》",
+                subtitle: "12個詞語",
+                words: [
+                    { word: "模模糊糊", def: "不清楚、記憶或視線模糊。" },
+                    { word: "抽屜", def: "桌子或櫃子中可以抽拉出來裝東西的部件。" },
+                    { word: "翻弄", def: "亂翻、翻來覆去地動。" },
+                    { word: "顯露", def: "明顯地表現出來。" },
+                    { word: "皺眉", def: "雙眉緊蹙，形容擔憂、不滿或思考的表情。" },
+                    { word: "關心", def: "把人或事放在心上，經常愛護、照顧。" },
+                    { word: "畢竟", def: "表示追根究底所得的結論（到底、終究）。" },
+                    { word: "糟糕", def: "事情辦得不好或情況壞透了。" },
+                    { word: "沉思", def: "深沉地思考。" },
+                    { word: "隨便", def: "任憑自己的意願，不受拘束。" },
+                    { word: "祕密", def: "不讓人知道的事物或情況。" },
+                    { word: "遲疑", def: "拿不定主意，猶豫不決。" }
+                ]
+            },
+            {
+                id: 7,
+                title: "第七課 《一枚銀幣》",
+                subtitle: "9個詞語",
+                words: [
+                    { word: "銀幣", def: "用銀鑄造的錢幣。" },
+                    { word: "紳士", def: "舊指地方上有錢、有地位、舉止文雅的人。" },
+                    { word: "發抖", def: "因寒冷、害怕或激動而身體顫抖。" },
+                    { word: "窮苦", def: "生活貧困艱苦。" },
+                    { word: "吉祥", def: "吉利、好運的兆頭。" },
+                    { word: "端詳", def: "仔細地看。" },
+                    { word: "祖國", def: "自己的國家。" },
+                    { word: "鑄造", def: "把金屬熔化後倒入模具裡製成器物。" },
+                    { word: "煩惱", def: "令人煩悶痛苦的事情或情緒。" }
+                ]
+            },
+            {
+                id: 8,
+                title: "第八課 《神奇的回音堡》",
+                subtitle: "13個詞語",
+                words: [
+                    { word: "光芒", def: "向四方射出的強烈光輝。" },
+                    { word: "安寧", def: "秩序正常、沒有騷擾的安靜環境或心境。" },
+                    { word: "掃描", def: "用光束或其他方式檢查、閱讀圖文或物體。" },
+                    { word: "開幕", def: "開始舉辦儀式（如展覽會、開幕典禮等）。" },
+                    { word: "有求必應", def: "只要有求，就一定答應或滿足。" },
+                    { word: "督促", def: "從旁監督催促，使人完成工作。" },
+                    { word: "靈驗", def: "神靈靈驗，或比喻方法、藥物等非常有效。" },
+                    { word: "嘉賓", def: "尊貴的客人。" },
+                    { word: "宏偉", def: "規模宏大偉大。" },
+                    { word: "邊緣", def: "靠近界線或邊上的地方。" },
+                    { word: "盡力", def: "用盡所有的力量。" },
+                    { word: "疑難", def: "難懂、難解的問題或事情。" },
+                    { word: "圍觀", def: "許多人圍在一起觀看。" }
+                ]
+            }
+        ];
+
+        let currentLessonIndex = 0;
+        let currentMode = 'match'; // 'match' or 'dropdown'
+        
+        // Match Mode State
+        let selectedWordIndex = null;
+        let userPairings = {}; // wordIndex -> defIndex
+        let shuffledDefs = []; // array of { originalIndex, def }
+
+        // Dropdown Mode State
+        let dropdownShuffledDefs = []; // array of definitions for dropdowns
+
+        // Initialization
+        window.onload = function() {
+            renderLessonTabs();
+            loadLesson(0);
+        };
+
+        function renderLessonTabs() {
+            const container = document.getElementById('lessonTabs');
+            container.innerHTML = '';
+            lessonsData.forEach((lesson, index) => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-3 rounded-2xl font-bold text-sm transition flex items-center justify-between ${index === currentLessonIndex ? 'bg-sky-500 text-white shadow-md shadow-sky-200' : 'bg-slate-50 hover:bg-sky-50 text-slate-600'}`;
+                btn.innerHTML = `<span>${lesson.title}</span><span class="text-xs opacity-80">${lesson.subtitle}</span>`;
+                btn.onclick = () => loadLesson(index);
+                container.appendChild(btn);
+            });
+        }
+
+        function loadLesson(index) {
+            currentLessonIndex = index;
+            renderLessonTabs();
+            
+            const lesson = lessonsData[currentLessonIndex];
+            document.getElementById('lessonBadge').innerText = lesson.title.split(' ')[0];
+            document.getElementById('lessonTitle').innerText = lesson.title.split(' ').slice(1).join(' ') || lesson.title;
+            document.getElementById('lessonSub').innerText = `請完成本課詞語配對練習（共 ${lesson.words.length} 個詞語）`;
+
+            initMatchState();
+            initDropdownState();
+        }
+
+        // --- MATCH MODE FUNCTIONS ---
+        function initMatchState() {
+            selectedWordIndex = null;
+            userPairings = {};
+            document.getElementById('matchFeedbackBox').innerHTML = '<span>✨</span> 請點擊左側詞語，再點擊右側解釋進行連線！';
+            
+            const lesson = lessonsData[currentLessonIndex];
+            shuffledDefs = lesson.words.map((item, idx) => ({ originalIndex: idx, def: item.def }));
+            shuffledDefs.sort(() => Math.random() - 0.5);
+
+            renderMatchBoards();
+        }
+
+        function renderMatchBoards() {
+            const lesson = lessonsData[currentLessonIndex];
+            
+            // Render Words
+            const wordsContainer = document.getElementById('wordsContainer');
+            wordsContainer.innerHTML = '';
+            lesson.words.forEach((item, idx) => {
+                const isSelected = selectedWordIndex === idx;
+                const isPaired = userPairings[idx] !== undefined;
+                
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border-2 transition cursor-pointer flex items-center justify-between font-bold text-sm ${
+                    isSelected ? 'border-sky-500 bg-sky-50 shadow-md ring-2 ring-sky-200 text-sky-700' :
+                    isPaired ? 'border-emerald-200 bg-emerald-50 text-emerald-800' :
+                    'border-slate-100 bg-white hover:border-sky-200 text-slate-700'
+                }`;
+                
+                let pairStatusBadge = isPaired ? `<span class="bg-emerald-200 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-normal">已配對</span>` : `<span class="text-xs text-slate-400 font-normal">點擊選擇</span>`;
+                
+                card.innerHTML = `<span>${idx + 1}. ${item.word}</span> ${pairStatusBadge}`;
+                card.onclick = () => selectWord(idx);
+                wordsContainer.appendChild(card);
+            });
+
+            // Render Definitions
+            const defsContainer = document.getElementById('definitionsContainer');
+            defsContainer.innerHTML = '';
+            shuffledDefs.forEach((sDef, sIdx) => {
+                let pairedWordIndex = Object.keys(userPairings).find(wIdx => userPairings[wIdx] === sIdx);
+                const isPaired = pairedWordIndex !== undefined;
+
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border-2 transition cursor-pointer flex items-center justify-between text-sm ${
+                    isPaired ? 'border-emerald-200 bg-emerald-50 text-emerald-800 font-medium' :
+                    'border-slate-100 bg-white hover:border-sky-200 text-slate-700'
+                }`;
+
+                let statusBadge = isPaired ? `<span class="bg-emerald-200 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-bold">詞語 ${parseInt(pairedWordIndex) + 1}</span>` : `<span class="text-xs text-slate-400">點擊配對</span>`;
+
+                card.innerHTML = `<span class="pr-2">${sDef.def}</span> ${statusBadge}`;
+                card.onclick = () => selectDefinition(sIdx);
+                defsContainer.appendChild(card);
+            });
+        }
+
+        function selectWord(idx) {
+            selectedWordIndex = idx;
+            renderMatchBoards();
+        }
+
+        function selectDefinition(sIdx) {
+            if (selectedWordIndex === null) {
+                showToast("請先點擊左側的一個詞語！", "amber");
+                return;
+            }
+
+            Object.keys(userPairings).forEach(wIdx => {
+                if (userPairings[wIdx] === sIdx) {
+                    delete userPairings[wIdx];
+                }
+            });
+
+            userPairings[selectedWordIndex] = sIdx;
+            selectedWordIndex = null;
+            renderMatchBoards();
+        }
+
+        function checkMatchAnswers() {
+            const lesson = lessonsData[currentLessonIndex];
+            const totalWords = lesson.words.length;
+            const pairedCount = Object.keys(userPairings).length;
+
+            if (pairedCount < totalWords) {
+                showToast(`還有 ${totalWords - pairedCount} 個詞語尚未配對！`, "amber");
+            }
+
+            let correctCount = 0;
+            const wordCards = document.getElementById('wordsContainer').children;
+            
+            for (let wIdx = 0; wIdx < totalWords; wIdx++) {
+                const sDefIdx = userPairings[wIdx];
+                const card = wordCards[wIdx];
+                
+                if (sDefIdx !== undefined) {
+                    const originalDefIndex = shuffledDefs[sDefIdx].originalIndex;
+                    if (originalDefIndex === wIdx) {
+                        correctCount++;
+                        card.className = "p-4 rounded-2xl border-2 border-emerald-400 bg-emerald-50 font-bold text-emerald-800 flex items-center justify-between";
+                        card.innerHTML = `<span>${wIdx + 1}. ${lesson.words[wIdx].word}</span> <span class="bg-emerald-200 text-emerald-800 text-xs px-2.5 py-1 rounded-full">✓ 答對</span>`;
+                    } else {
+                        card.className = "p-4 rounded-2xl border-2 border-rose-400 bg-rose-50 font-bold text-rose-800 flex flex-col items-start gap-1";
+                        card.innerHTML = `
+                            <div class="flex justify-between w-full items-center">
+                                <span>${wIdx + 1}. ${lesson.words[wIdx].word}</span>
+                                <span class="bg-rose-200 text-rose-800 text-xs px-2.5 py-1 rounded-full">✗ 答錯</span>
+                            </div>
+                            <div class="text-xs text-slate-600 bg-white/80 p-2 rounded-xl w-full border border-rose-200 mt-1">
+                                <span class="font-bold text-emerald-700">正確答案：</span>${lesson.words[wIdx].def}
+                            </div>
+                        `;
+                    }
+                } else {
+                    card.className = "p-4 rounded-2xl border-2 border-amber-400 bg-amber-50 font-bold text-amber-800 flex flex-col items-start gap-1";
+                    card.innerHTML = `
+                        <div class="flex justify-between w-full items-center">
+                            <span>${wIdx + 1}. ${lesson.words[wIdx].word}</span>
+                            <span class="bg-amber-200 text-amber-800 text-xs px-2.5 py-1 rounded-full">未作答</span>
+                        </div>
+                        <div class="text-xs text-slate-600 bg-white/80 p-2 rounded-xl w-full border border-amber-200 mt-1">
+                            <span class="font-bold text-emerald-700">正確答案：</span>${lesson.words[wIdx].def}
+                        </div>
+                    `;
+                }
+            }
+
+            const feedbackBox = document.getElementById('matchFeedbackBox');
+            if (correctCount === totalWords) {
+                feedbackBox.innerHTML = `<span class="text-emerald-600 font-black text-base">🎉 太棒了！全部 ${totalWords} 題答對！</span>`;
+                triggerConfetti();
+                showModal("太棒了！全部答對！", `你在《${lesson.title}》中獲得了滿分 ${totalWords}/${totalWords}！`);
+            } else {
+                feedbackBox.innerHTML = `<span class="text-rose-600 font-bold">💪 答對了 ${correctCount} / ${totalWords} 題，正確解答已在上方紅標下方列出！</span>`;
+            }
+        }
+
+
+        // --- DROPDOWN MODE FUNCTIONS ---
+        function initDropdownState() {
+            const lesson = lessonsData[currentLessonIndex];
+            dropdownShuffledDefs = lesson.words.map(w => w.def);
+            dropdownShuffledDefs.sort(() => Math.random() - 0.5);
+
+            const container = document.getElementById('dropdownListContainer');
+            container.innerHTML = '';
+            document.getElementById('dropdownScore').innerText = '完成後點擊檢查按鈕評分';
+            document.getElementById('dropdownFeedbackBox').innerHTML = '請為每個詞語選擇最正確的解釋！';
+
+            lesson.words.forEach((item, idx) => {
+                const row = document.createElement('div');
+                row.className = "p-4 rounded-2xl border-2 border-slate-100 bg-white flex flex-col md:flex-row items-start md:items-center justify-between gap-3 dropdown-row";
+                row.dataset.correctDef = item.def;
+
+                let selectOptions = `<option value="">-- 請選擇正確解釋 --</option>`;
+                dropdownShuffledDefs.forEach(def => {
+                    selectOptions += `<option value="${escapeAttr(def)}">${def}</option>`;
+                });
+
+                row.innerHTML = `
+                    <div class="font-black text-slate-800 text-base min-w-[140px]">
+                        <span class="text-sky-500 mr-1">${idx + 1}.</span> ${item.word}
+                    </div>
+                    <div class="w-full flex-grow flex flex-col gap-1.5">
+                        <select class="dropdown-select w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                            ${selectOptions}
+                        </select>
+                        <div class="correct-hint hidden text-xs font-bold text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                            正確答案：${item.def}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function checkDropdownAnswers() {
+            const lesson = lessonsData[currentLessonIndex];
+            const rows = document.querySelectorAll('.dropdown-row');
+            let correctCount = 0;
+
+            rows.forEach((row) => {
+                const select = row.querySelector('.dropdown-select');
+                const hint = row.querySelector('.correct-hint');
+                const selectedVal = select.value;
+                const correctDef = row.dataset.correctDef;
+
+                select.disabled = true;
+                hint.classList.remove('hidden');
+
+                if (selectedVal === correctDef) {
+                    correctCount++;
+                    row.className = "p-4 rounded-2xl border-2 border-emerald-400 bg-emerald-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 dropdown-row";
+                    hint.className = "correct-hint text-xs font-bold text-emerald-700 bg-emerald-100 p-2 rounded-lg border border-emerald-300";
+                    hint.innerHTML = `✓ 答對！${correctDef}`;
+                } else {
+                    row.className = "p-4 rounded-2xl border-2 border-rose-400 bg-rose-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 dropdown-row";
+                    hint.className = "correct-hint text-xs font-bold text-rose-700 bg-white p-2 rounded-lg border border-rose-300";
+                    hint.innerHTML = `✗ 你的選擇不正確。<span class="text-emerald-700 ml-1">正確答案：${correctDef}</span>`;
+                }
+            });
+
+            document.getElementById('dropdownScore').innerText = `得分：${correctCount} / ${lesson.words.length}`;
+            const feedbackBox = document.getElementById('dropdownFeedbackBox');
+
+            if (correctCount === lesson.words.length) {
+                feedbackBox.innerHTML = `<span class="text-emerald-600 font-black text-base">🎉 太棒了！下拉選單測驗全部答對！</span>`;
+                triggerConfetti();
+                showModal("測驗滿分！", `你在《${lesson.title}》的下拉選單測驗中獲得滿分 ${correctCount}/${lesson.words.length}！`);
+            } else {
+                feedbackBox.innerHTML = `<span class="text-rose-600 font-bold">💪 答對了 ${correctCount} / ${lesson.words.length} 題，請參閱上方紅標與正確解答！</span>`;
+            }
+        }
+
+        function showAllAnswers() {
+            if (currentMode === 'match') {
+                userPairings = {};
+                const lesson = lessonsData[currentLessonIndex];
+                lesson.words.forEach((item, wIdx) => {
+                    const sIdx = shuffledDefs.findIndex(sd => sd.originalIndex === wIdx);
+                    if (sIdx !== -1) {
+                        userPairings[wIdx] = sIdx;
+                    }
+                });
+                renderMatchBoards();
+                checkMatchAnswers();
+                showToast("已展示完整參考答案！", "sky");
+            } else {
+                const rows = document.querySelectorAll('.dropdown-row');
+                rows.forEach(row => {
+                    const select = row.querySelector('.dropdown-select');
+                    const correctDef = row.dataset.correctDef;
+                    select.value = correctDef;
+                });
+                checkDropdownAnswers();
+                showToast("已填入並展示所有正確答案！", "sky");
+            }
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const matchBtn = document.getElementById('modeMatchBtn');
+            const dropdownBtn = document.getElementById('modeDropdownBtn');
+            const matchView = document.getElementById('matchGameView');
+            const dropdownView = document.getElementById('dropdownQuizView');
+
+            if (mode === 'match') {
+                matchBtn.className = "px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-sky-600";
+                dropdownBtn.className = "px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-sky-600 transition-all";
+                matchView.classList.remove('hidden');
+                dropdownView.classList.add('hidden');
+                initMatchState();
+            } else {
+                dropdownBtn.className = "px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-sky-600";
+                matchBtn.className = "px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-sky-600 transition-all";
+                dropdownView.classList.remove('hidden');
+                matchView.classList.add('hidden');
+                initDropdownState();
+            }
+        }
+
+        function resetCurrentLesson() {
+            if (currentMode === 'match') {
+                initMatchState();
+                showToast("已重新洗牌與重置！", "sky");
+            } else {
+                initDropdownState();
+                showToast("測驗已重新開始！", "sky");
+            }
+        }
+
+        function nextLesson() {
+            closeModal();
+            currentLessonIndex = (currentLessonIndex + 1) % lessonsData.length;
+            loadLesson(currentLessonIndex);
+        }
+
+        function showModal(title, desc) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+            document.getElementById('resultModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('resultModal').classList.add('hidden');
+        }
+
+        function triggerConfetti() {
+            confetti({
+                particleCount: 120,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function showToast(message, type = 'sky') {
+            const toast = document.createElement('div');
+            let bg = 'bg-sky-600';
+            if (type === 'emerald') bg = 'bg-emerald-600';
+            if (type === 'amber') bg = 'bg-amber-600';
+            if (type === 'rose') bg = 'bg-rose-600';
+
+            toast.className = `fixed bottom-6 right-6 ${bg} text-white px-5 py-3 rounded-2xl shadow-xl font-bold text-sm z-50 animate-in fade-in slide-in-from-bottom-4 duration-300`;
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        function escapeAttr(str) {
+            return str.replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>
